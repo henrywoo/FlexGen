@@ -67,13 +67,20 @@ def get_opt_config(name, **kwargs):
             max_seq_len=2048, num_hidden_layers=12, n_head=12,
             hidden_size=768, input_dim=768, ffn_embed_dim=768 * 4,
         )
+    elif arch_name == 'bloom-560m':
+        # change OptConfig to a more generic name
+        config = OptConfig(name=name,
+                           max_seq_len=1024, num_hidden_layers=24, n_head=16,
+                           hidden_size=1024,
+                           input_dim=1024, ffn_embed_dim=1024 * 4, # ??
+                           )
     elif arch_name == "opt-350m":
         config = OptConfig(name=name,
             max_seq_len=2048, num_hidden_layers=24, n_head=16,
-            hidden_size=1024, input_dim=1024, ffn_embed_dim=1024 * 4,
+            hidden_size=1024, input_dim=512, ffn_embed_dim=1024 * 4,
         )
-        raise NotImplementedError("Not implemented because this model "
-                                  "has a different architecture")
+        #raise NotImplementedError("Not implemented because this model "
+        #                          "has a different architecture")
     elif arch_name == "opt-1.3b":
         config = OptConfig(name=name,
             max_seq_len=2048, num_hidden_layers=24, n_head=32,
@@ -215,22 +222,8 @@ def disable_hf_opt_init():
     setattr(transformers.models.opt.modeling_opt.OPTPreTrainedModel,
             "_init_weights", lambda *args, **kwargs: None)
 
-
-def download_opt_weights(model_name, path):
-    from huggingface_hub import snapshot_download
+def generate_weights(model_name, folder, path):
     import torch
-
-    print(f"Load the pre-trained pytorch weights of {model_name} from huggingface. "
-          f"The downloading and cpu loading can take dozens of minutes. "
-          f"If it seems to get stuck, you can monitor the progress by "
-          f"checking the memory usage of this process.")
-
-    if "opt" in model_name:
-        hf_model_name = "facebook/" + model_name
-    elif "galactica" in model_name:
-        hf_model_name = "facebook/" + model_name
-
-    folder = snapshot_download(hf_model_name, allow_patterns="*.bin")
     bin_files = glob.glob(os.path.join(folder, "*.bin"))
 
     if "/" in model_name:
@@ -252,6 +245,25 @@ def download_opt_weights(model_name, path):
             if "decoder.embed_tokens.weight" in name:
                 shutil.copy(param_path, param_path.replace(
                     "decoder.embed_tokens.weight", "lm_head.weight"))
+
+def download_opt_weights(model_name, path):
+    from huggingface_hub import snapshot_download
+
+    print(f"Load the pre-trained pytorch weights of {model_name} from huggingface. "
+          f"The downloading and cpu loading can take dozens of minutes. "
+          f"If it seems to get stuck, you can monitor the progress by "
+          f"checking the memory usage of this process.")
+
+    if "opt" in model_name:
+        hf_model_name = "facebook/" + model_name
+    elif "galactica" in model_name:
+        hf_model_name = "facebook/" + model_name
+    elif 'bloom' in model_name:
+        hf_model_name = "bigscience/" + model_name
+
+    folder = snapshot_download(hf_model_name, allow_patterns="*.bin")
+    generate_weights(model_name, folder, path)
+
 
 
 if __name__ == "__main__":

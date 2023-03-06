@@ -122,7 +122,9 @@ class TorchTensor:
         if self.device.device_type == DeviceType.DISK:
             shutil.copy(filename, self.data)
         else:
-            self.load_from_np(np.load(filename))
+            t = np.load(filename)
+            print("load_from_np_file:", filename, ", shape:", t.shape)
+            self.load_from_np(t)
 
     def copy(self, dst, src_indices=None):
         if src_indices:
@@ -604,13 +606,9 @@ class TorchDevice:
 
         if output_file is not None:
             with open(output_file, "w") as f:
-                f.write(f"TorchDevice: {self.name}\n")
-                f.write(f"  cur_mem: {cur_mem/GB:.4f} GB, "
-                        f" peak_mem: {peak_mem/GB:.4f} GB\n")
+                f.write(f"TorchDevice: {self.name}, cur_mem: {cur_mem/GB:.4f} GB, peak_mem: {peak_mem/GB:.4f} GB\n")
         else:
-            print(f"TorchDevice: {self.name}")
-            print(f"  cur_mem: {cur_mem/GB:.4f} GB, "
-                  f" peak_mem: {peak_mem/GB:.4f} GB")
+            print(f"TorchDevice: {self.name}, cur_mem: {cur_mem/GB:.4f} GB, peak_mem: {peak_mem/GB:.4f} GB")
 
         return cur_mem, peak_mem
 
@@ -772,7 +770,7 @@ class TorchLink:
         a.add_link(self)
         b.add_link(self)
 
-    def io_time(self, src, dst, size):
+    def io_time(self, src, dst, size, force_io_time=None):
         if src == self.a:
             assert dst == self.b
             bandwidth = self.a_to_b_bandwidth

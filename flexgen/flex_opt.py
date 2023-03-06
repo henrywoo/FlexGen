@@ -22,8 +22,8 @@ from flexgen.pytorch_backend import (TorchDevice, TorchDisk, TorchLink,
 from flexgen.timer import timers
 from flexgen.utils import (Task, ExecutionEnv, GB, T, ValueHolder,
     array_1d, array_2d, array_3d, str2bool, project_decode_latency,
-    torch_mem_stats, torch_dtype_to_np_dtype, write_benchmark_log,
-    read_benchmark_log)
+    torch_dtype_to_np_dtype, write_benchmark_log,
+    )
 
 fix_recursive_import()
 
@@ -840,7 +840,6 @@ class OptLM:
             temperature=temperature,
             stop=stop,
         )
-        num_layers = self.num_layers
         num_gpu_batches = self.num_gpu_batches
         gpu_batch_size = self.policy.gpu_batch_size
         overlap = self.policy.overlap
@@ -1149,6 +1148,9 @@ class OptLM:
         self.delete_all_weights()
 
 
+class BloomLM(OptLM):
+    pass
+
 def get_filename(args):
     model_size = args.model.split('-')[-1]
     percent = ""
@@ -1177,7 +1179,8 @@ def get_test_inputs(prompt_len, num_prompts, tokenizer):
 
 
 def run_flexgen(args):
-    print(f"<run_flexgen>: args.model: {args.model}")
+    if args.verbose:
+        print(f"<run_flexgen>: args.model: {args.model}")
     if args.model == "facebook/galactica-30b":
         tokenizer = AutoTokenizer.from_pretrained("facebook/galactica-30b", padding_side="left")
     else:
@@ -1215,19 +1218,23 @@ def run_flexgen(args):
           f"cache size: {cache_size/GB:.3f} GB, "
           f"hidden size (prefill): {hidden_size/GB:.3f} GB")
 
-    print("init weight...")
+    if args.verbose:
+        print("init weight...")
     model = OptLM(opt_config, env, args.path, policy)
 
     try:
-        print("warmup - generate")
+        if args.verbose:
+            print("warmup - generate")
         output_ids = model.generate(
             warmup_inputs, max_new_tokens=1, verbose=args.verbose)
-
-        print("benchmark - generate")
+        """
+        if args.verbose:
+            print("benchmark - generate")
         timers("generate").reset()
         output_ids = model.generate(
             inputs, max_new_tokens=args.gen_len,
             debug_mode=args.debug_mode, cut_gen_len=cut_gen_len, verbose=args.verbose)
+        """
         costs = timers("generate").costs
     finally:
         env.close_copy_threads()
