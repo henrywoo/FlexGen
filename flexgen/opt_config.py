@@ -222,9 +222,9 @@ def disable_hf_opt_init():
     setattr(transformers.models.opt.modeling_opt.OPTPreTrainedModel,
             "_init_weights", lambda *args, **kwargs: None)
 
-def generate_weights(model_name, folder, path):
+def generate_weights(model_name, folder, path, suffix="bin"):
     import torch
-    bin_files = glob.glob(os.path.join(folder, "*.bin"))
+    bin_files = glob.glob(os.path.join(folder, "*." + suffix))
 
     if "/" in model_name:
         model_name = model_name.split("/")[1].lower()
@@ -266,10 +266,40 @@ def download_opt_weights(model_name, path):
 
 
 
+def generate_weights_from_monlithic(model_name, bin_folder, dest_folder, suffix="bin"):
+    import torch
+    bin_files = glob.glob(os.path.join(bin_folder, "*." + suffix))
+
+    if "/" in model_name:
+        model_name = model_name.split("/")[1].lower()
+    os.makedirs(dest_folder, exist_ok=True)
+
+    for bin_file in tqdm(bin_files, desc="Convert format"):
+        state = torch.load(bin_file)
+        for name, param in tqdm(state.items(), leave=False):
+            print("name:", name)
+            name = name.replace("model.", "")
+            name = name.replace("decoder.final_layer_norm", "decoder.layer_norm")
+            param_path = os.path.join(dest_folder, name)
+            with open(param_path, "wb") as f:
+                np.save(f, param.cpu().detach().numpy())
+
+            # shared embedding
+            if "decoder.embed_tokens.weight" in name:
+                shutil.copy(param_path, param_path.replace(
+                    "decoder.embed_tokens.weight", "lm_head.weight"))
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", type=str)
+    parser.add_argument("--model", type=str, default="facebook/llama-7b")
     parser.add_argument("--path", type=str, default="~/opt_weights")
     args = parser.parse_args()
 
-    download_opt_weights(args.model, args.path)
+    #download_opt_weights(args.model, args.path)
+    model_name = "facebook/llama-7b"
+    bin_folder = "~/workspace/llama_data/7B"
+    dest_folder = "~/workspace/llama_data/7B_states"
+    generate_weights_from_monlithic(model_name, bin_folder, dest_folder, "pth")
+    
+    
+    
